@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ретро-Газета — Генератор Новостей</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&family=UnifrakturMaguntia&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+        font-family: 'Old Standard TT', Georgia, serif;
+        background: #3a3226;
+        background-image:
+            radial-gradient(circle at 20% 30%, rgba(0,0,0,0.2) 0%, transparent 40%),
+            radial-gradient(circle at 80% 70%, rgba(0,0,0,0.25) 0%, transparent 45%);
+        min-height: 100vh;
+        padding: 20px;
+        color: #2b241a;
+    }
+
+    .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+
+    .controls {
+        background: #f4ecd8;
+        border: 2px solid #8b7355;
+        border-radius: 4px;
+        padding: 24px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+
+    .controls h2 {
+        font-family: 'Playfair Display', serif;
+        font-size: 22px;
+        text-align: center;
+        margin-bottom: 18px;
+        padding-bottom: 10px;
+        border-bottom: 3px double #8b7355;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+
+    .field { margin-bottom: 14px; }
+
+    .field label {
+        display: block;
+        font-weight: 700;
+        font-size: 13px;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #5a4a35;
+    }
+
+    .field input[type="text"],
+    .field textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 2px solid #b8a888;
+        background: #fffdf5;
+        font-family: 'Old Standard TT', serif;
+        font-size: 15px;
+        color: #2b241a;
+        border-radius: 3px;
+        transition: border-color 0.2s;
+    }
+
+    .field input[type="text"]:focus,
+    .field textarea:focus {
+        outline: none;
+        border-color: #8b7355;
+        background: #fff;
+    }
+
+    .field textarea { resize: vertical; min-height: 90px; }
+
+    .field input[type="file"] {
+        width: 100%;
+        padding: 8px;
+        border: 2px dashed #b8a888;
+        background: #fffdf5;
+        font-size: 13px;
+        cursor: pointer;
+    }
+
+    .photo-controls {
+        display: flex;
+        gap: 8px;
+        align-items: stretch;
+        flex-wrap: wrap;
+    }
+    .photo-controls input[type="file"] { flex: 1; min-width: 140px; }
+
+    .btn-remove-photo {
+        padding: 0 14px;
+        background: #7a2e2e;
+        color: #f4ecd8;
+        border: 2px solid #2b241a;
+        border-radius: 3px;
+        cursor: pointer;
+        font-family: 'Playfair Display', serif;
+        font-size: 18px;
+        font-weight: 700;
+        box-shadow: 3px 3px 0 #2b241a;
+        transition: all 0.2s;
+        flex-shrink: 0;
+        min-width: 48px;
+    }
+    .btn-remove-photo:hover { background: #963a3a; transform: translate(-1px,-1px); box-shadow: 4px 4px 0 #2b241a; }
+    .btn-remove-photo:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #2b241a; }
+    .btn-remove-photo:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: 3px 3px 0 #2b241a; }
+
+    .buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 18px;
+    }
+
+    button {
+        font-family: 'Playfair Display', serif;
+        font-weight: 700;
+        font-size: 14px;
+        padding: 12px 14px;
+        border: 2px solid #2b241a;
+        background: #8b7355;
+        color: #f4ecd8;
+        cursor: pointer;
+        border-radius: 3px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.2s;
+        box-shadow: 3px 3px 0 #2b241a;
+    }
+
+    button:hover { background: #a08a6a; transform: translate(-1px,-1px); box-shadow: 4px 4px 0 #2b241a; }
+    button:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #2b241a; }
+    button:disabled { opacity: 0.6; cursor: wait; }
+
+    button.full { grid-column: 1 / -1; }
+    button.accent { background: #7a2e2e; }
+    button.accent:hover { background: #963a3a; }
+    button.dark { background: #2b241a; }
+    button.dark:hover { background: #4a3f30; }
+
+    #paper {
+        background:
+            repeating-linear-gradient(0deg, rgba(139,115,85,0.03) 0px, rgba(139,115,85,0.03) 1px, transparent 1px, transparent 3px),
+            #f4ecd8;
+        border: 2px solid #8b7355;
+        padding: 24px 20px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        color: #1a1510;
+        position: relative;
+    }
+
+    #paper::before {
+        content: "";
+        position: absolute;
+        inset: 6px;
+        border: 1px solid #c0ab88;
+        pointer-events: none;
+    }
+
+    .paper-masthead {
+        text-align: center;
+        border-bottom: 4px double #2b241a;
+        padding-bottom: 10px;
+        margin-bottom: 6px;
+    }
+
+    .paper-name {
+        font-family: 'UnifrakturMaguntia', 'Playfair Display', serif;
+        font-size: clamp(28px, 8vw, 54px);
+        line-height: 1.1;
+        color: #1a1510;
+        word-wrap: break-word;
+        padding: 0 8px;
+    }
+
+    .paper-datebar {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        border-top: 1px solid #2b241a;
+        border-bottom: 1px solid #2b241a;
+        padding: 4px 6px;
+        margin-top: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 700;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .paper-headline {
+        font-family: 'Playfair Display', serif;
+        font-weight: 900;
+        font-size: clamp(22px, 5vw, 40px);
+        line-height: 1.15;
+        text-align: center;
+        margin: 18px 0 12px;
+        padding: 0 6px;
+        word-wrap: break-word;
+        text-transform: uppercase;
+    }
+
+    .paper-figure {
+        margin: 14px 0;
+        text-align: center;
+    }
+
+    .paper-figure img {
+        max-width: 100%;
+        height: auto;
+        max-height: 380px;
+        border: 1px solid #8b7355;
+        padding: 4px;
+        background: #fff;
+        filter: sepia(0.35) contrast(1.05) grayscale(0.15);
+    }
+
+    .paper-caption {
+        font-style: italic;
+        font-size: 13px;
+        margin-top: 6px;
+        color: #4a3f30;
+        padding: 0 10px;
+        line-height: 1.4;
+    }
+
+    .paper-body {
+        font-size: 15px;
+        line-height: 1.7;
+        text-align: justify;
+        margin-top: 14px;
+        column-gap: 24px;
+        word-wrap: break-word;
+        hyphens: auto;
+    }
+
+    .paper-body p { margin-bottom: 10px; }
+    .paper-body p:first-child::first-letter {
+        font-family: 'Playfair Display', serif;
+        font-size: 3.2em;
+        float: left;
+        line-height: 0.8;
+        padding: 4px 8px 0 0;
+        font-weight: 900;
+        color: #7a2e2e;
+    }
+
+    .paper-footer {
+        margin-top: 18px;
+        padding-top: 8px;
+        border-top: 3px double #2b241a;
+        text-align: center;
+        font-size: 10px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #5a4a35;
+    }
+
+    @media (max-width: 600px) {
+        body { padding: 10px; }
+        .controls { padding: 16px; }
+        #paper { padding: 18px 14px; }
+        .buttons { grid-template-columns: 1fr; }
+        .paper-body { font-size: 14px; }
+    }
+
+    @media (min-width: 900px) {
+        .container {
+            grid-template-columns: 380px 1fr;
+            align-items: start;
+        }
+        .controls { position: sticky; top: 20px; }
+        .paper-body { column-count: 2; }
+    }
+
+    .toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%) translateY(100px);
+        background: #2b241a;
+        color: #f4ecd8;
+        padding: 12px 24px;
+        border-radius: 4px;
+        font-size: 14px;
+        opacity: 0;
+        transition: all 0.3s;
+        z-index: 999;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        max-width: 90vw;
+        text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="controls">
+        <h2>⚙️ Редакция</h2>
+
+        <div class="field">
+            <label for="paperName">Название газеты</label>
+            <input type="text" id="paperName" placeholder="Например: Вечерний Курьер" value="Вечерний Курьер">
+        </div>
+
+        <div class="field">
+            <label for="headline">Главный заголовок</label>
+            <input type="text" id="headline" placeholder="О чём новость?" value="В городе замечен летающий трамвай">
+        </div>
+
+        <div class="field">
+            <label for="bodyText">Текст статьи</label>
+            <textarea id="bodyText" placeholder="Введите текст статьи...">Сегодня утром жители центральной части города стали свидетелями невероятного зрелища: трамвай маршрута №7 оторвался от рельсов и плавно поднялся в воздух. По словам очевидцев, транспортное средство кружило над площадью около пятнадцати минут, после чего благополучно вернулось на маршрут. Водитель утверждает, что никаких неисправностей не заметил.</textarea>
+        </div>
+
+        <div class="field">
+            <label for="caption">Подпись к фото</label>
+            <input type="text" id="caption" placeholder="Что на фотографии?" value="Очевидцы запечатлели летающий трамвай над городской площадью.">
+        </div>
+
+        <div class="field">
+            <label for="photo">Фото к новости</label>
+            <div class="photo-controls">
+                <input type="file" id="photo" accept="image/*">
+                <button class="btn-remove-photo" id="btnRemovePhoto" title="Удалить фото" disabled>✕</button>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button class="accent full" id="btnGenerate">🎲 Абсурдная новость</button>
+            <button class="dark" id="btnPublish">📢 Опубликовать</button>
+            <button id="btnPdf">📄 Скачать PDF</button>
+        </div>
+    </div>
+
+    <div id="paper">
+        <div class="paper-masthead">
+            <div class="paper-name" id="outName">Вечерний Курьер</div>
+            <div class="paper-datebar">
+                <span id="outDate">—</span>
+                <span>Выпуск № 1 · Цена 5 коп.</span>
+            </div>
+        </div>
+
+        <div class="paper-headline" id="outHeadline">В городе замечен летающий трамвай</div>
+
+        <div class="paper-figure" id="outFigure">
+            <img id="outImage" alt="" style="display:none;">
+            <div class="paper-caption" id="outCaption">Очевидцы запечатлели летающий трамвай над городской площадью.</div>
+        </div>
+
+        <div class="paper-body" id="outBody">
+            <p>Сегодня утром жители центральной части города стали свидетелями невероятного зрелища: трамвай маршрута №7 оторвался от рельсов и плавно поднялся в воздух. По словам очевидцев, транспортное средство кружило над площадью около пятнадцати минут, после чего благополучно вернулось на маршрут. Водитель утверждает, что никаких неисправностей не заметил.</p>
+        </div>
+
+        <div class="paper-footer">Специальный выпуск · Все совпадения случайны</div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ ЭЛЕМЕНТЫ ============ */
+const els = {
+    paperName: document.getElementById('paperName'),
+    headline: document.getElementById('headline'),
+    bodyText: document.getElementById('bodyText'),
+    caption: document.getElementById('caption'),
+    photo: document.getElementById('photo'),
+    outName: document.getElementById('outName'),
+    outHeadline: document.getElementById('outHeadline'),
+    outBody: document.getElementById('outBody'),
+    outImage: document.getElementById('outImage'),
+    outCaption: document.getElementById('outCaption'),
+    outDate: document.getElementById('outDate'),
+    outFigure: document.getElementById('outFigure'),
+    paper: document.getElementById('paper'),
+    toast: document.getElementById('toast'),
+    btnGenerate: document.getElementById('btnGenerate'),
+    btnPublish: document.getElementById('btnPublish'),
+    btnPdf: document.getElementById('btnPdf'),
+    btnRemovePhoto: document.getElementById('btnRemovePhoto')
+};
+
+let uploadedImageData = null;
+
+/* ============ УТИЛИТЫ ============ */
+function showToast(msg) {
+    els.toast.textContent = msg;
+    els.toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => els.toast.classList.remove('show'), 3000);
+}
+
+const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+function todayRu() {
+    const d = new Date();
+    return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function updateRemoveBtn() {
+    els.btnRemovePhoto.disabled = !uploadedImageData;
+}
+
+/* ============ СИНХРОНИЗАЦИЯ ============ */
+function syncPaper() {
+    els.outName.textContent = els.paperName.value.trim() || 'Без названия';
+    els.outHeadline.textContent = els.headline.value.trim() || 'Заголовок';
+    els.outDate.textContent = todayRu();
+
+    const raw = els.bodyText.value.trim();
+    if (raw) {
+        els.outBody.innerHTML = raw
+            .split(/\n\s*\n/)
+            .filter(p => p.trim())
+            .map(p => `<p>${escapeHtml(p.trim())}</p>`)
+            .join('');
+    } else {
+        els.outBody.innerHTML = '<p></p>';
+    }
+
+    els.outCaption.textContent = els.caption.value.trim();
+    els.outCaption.style.display = els.caption.value.trim() ? 'block' : 'none';
+}
+
+['input','change'].forEach(ev => {
+    els.paperName.addEventListener(ev, syncPaper);
+    els.headline.addEventListener(ev, syncPaper);
+    els.bodyText.addEventListener(ev, syncPaper);
+    els.caption.addEventListener(ev, syncPaper);
+});
+
+/* ============ ЗАГРУЗКА ФОТО ============ */
+els.photo.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+        showToast('Пожалуйста, выберите изображение');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => {
+        uploadedImageData = ev.target.result;
+        els.outImage.src = uploadedImageData;
+        els.outImage.style.display = 'block';
+        updateRemoveBtn();
+    };
+    reader.readAsDataURL(file);
+});
+
+/* ============ УДАЛЕНИЕ ФОТО ============ */
+els.btnRemovePhoto.addEventListener('click', () => {
+    uploadedImageData = null;
+    els.photo.value = '';
+    els.outImage.src = '';
+    els.outImage.style.display = 'none';
+    updateRemoveBtn();
+    showToast('Фото удалено 🗑');
+});
+
+/* ============ АБСУРДНАЯ НОВОСТЬ ============ */
+const SUBJECTS = ['Городской совет','Учёные','Пенсионер из Саратова','Кот мэра','Министерство странных дел','Инопланетяне','Дворник дядя Вася','Робот-пылесос','Голуби с площади','Местный блогер'];
+const VERBS = ['объявили','обнаружили','запустили','запретили','признали','продали','потеряли','изобрели','потребовали','случайно создали'];
+const OBJECTS = ['летающие сосиски','закон о гравитации','подземный космодром','облако из ваты','машину времени на дровах','говорящий борщ','портал в 1987 год','шляпу-невидимку','жидкий интернет','армию резиновых уток'];
+const CONSEQUENCES = ['что вызвало панику среди местных котов.','и теперь все обязаны ходить задом наперёд.','однако никто не заметил разницы.','из-за чего подорожал проезд в трамвае.','и это официально подтвердила бабушка с первого этажа.','но документы об этом засекретили до 3025 года.','в результате чего в городе выпал снег из манной крупы.','и теперь каждый вторник объявлен выходным.'];
+
+function absNews() {
+    const r = arr => arr[Math.floor(Math.random() * arr.length)];
+    const headline = `${r(SUBJECTS)} ${r(VERBS)} ${r(OBJECTS)}`;
+
+    const intro = `${r(SUBJECTS)} ${r(VERBS)} ${r(OBJECTS)}, ${r(CONSEQUENCES)}`;
+    const para2 = `Очевидцы рассказывают, что сначала никто не поверил своим глазам. "${r(SUBJECTS)} снова ${r(VERBS).slice(0,-2)}и ${r(OBJECTS)}" — заявил случайный прохожий, отказавшийся назвать имя.`;
+    const para3 = `Эксперты пока воздерживаются от комментариев, но уже известно, что к расследованию подключился ${r(['отдел паранормальных явлений','институт абсурдных наук','союз дворников-любителей','комитет по делам котов'])}.`;
+    const para4 = `Следующие новости по этой теме читайте в нашем ретро-выпуске. Все совпадения случайны.`;
+
+    els.headline.value = headline.charAt(0).toUpperCase() + headline.slice(1);
+    els.bodyText.value = [intro, para2, para3, para4].join('\n\n');
+    els.caption.value = `Фоторепортаж: ${headline.toLowerCase()}.`;
+    if (!els.paperName.value.trim()) els.paperName.value = 'Абсурдный Вестник';
+
+    syncPaper();
+    showToast('Абсурдная новость сгенерирована 🎲');
+}
+
+els.btnGenerate.addEventListener('click', absNews);
+
+/* ============ ПУБЛИКАЦИЯ ============ */
+els.btnPublish.addEventListener('click', () => {
+    syncPaper();
+    const paperHTML = els.paper.outerHTML;
+
+    const styles = Array.from(document.styleSheets)
+        .map(ss => {
+            try {
+                return Array.from(ss.cssRules).map(r => r.cssText).join('\n');
+            } catch (e) { return ''; }
+        }).join('\n');
+
+    const win = window.open('', '_blank', 'width=900,height=800');
+    if (!win) {
+        showToast('Разрешите всплывающие окна');
+        return;
+    }
+
+    win.document.write(`<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>${escapeHtml(els.paperName.value || 'Газета')}</title>
+<style>
+${styles}
+body { padding: 30px; background: #3a3226; }
+#paper { max-width: 800px; margin: 0 auto; }
+.paper-body { column-count: 1; }
+</style>
+</head>
+<body>${paperHTML}</body>
+</html>`);
+    win.document.close();
+    showToast('Новость опубликована 📢');
+});
+
+/* ============ СКАЧАТЬ PDF ============ */
+els.btnPdf.addEventListener('click', async () => {
+    syncPaper();
+    els.btnPdf.disabled = true;
+    els.btnPdf.textContent = 'Готовим PDF...';
+
+    try {
+        const { jsPDF } = window.jspdf;
+        const paperEl = els.paper;
+
+        const canvas = await html2canvas(paperEl, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: '#f4ecd8',
+            logging: false,
+            scrollY: -window.scrollY,
+            windowWidth: paperEl.scrollWidth
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const margin = 8;
+        const contentWidth = pdfWidth - margin * 2;
+        const imgHeight = (canvas.height * contentWidth) / canvas.width;
+
+        if (imgHeight <= pdfHeight - margin * 2) {
+            const yOffset = (pdfHeight - imgHeight) / 2;
+            pdf.addImage(imgData, 'JPEG', margin, Math.max(margin, yOffset), contentWidth, imgHeight);
+        } else {
+            let remainingHeight = imgHeight;
+            let pageNum = 0;
+            const pageContentHeight = pdfHeight - margin * 2;
+            const canvasPageHeightPx = (pageContentHeight / contentWidth) * canvas.width;
+
+            while (remainingHeight > 0) {
+                if (pageNum > 0) pdf.addPage();
+
+                const pageCanvas = document.createElement('canvas');
+                pageCanvas.width = canvas.width;
+                pageCanvas.height = Math.min(canvasPageHeightPx, canvas.height - pageNum * canvasPageHeightPx);
+                const pctx = pageCanvas.getContext('2d');
+                pctx.drawImage(
+                    canvas,
+                    0, pageNum * canvasPageHeightPx,
+                    canvas.width, pageCanvas.height,
+                    0, 0,
+                    canvas.width, pageCanvas.height
+                );
+
+                const pageData = pageCanvas.toDataURL('image/jpeg', 0.95);
+                const pageImgHeight = (pageCanvas.height * contentWidth) / pageCanvas.width;
+                pdf.addImage(pageData, 'JPEG', margin, margin, contentWidth, pageImgHeight);
+
+                remainingHeight -= pageContentHeight;
+                pageNum++;
+            }
+        }
+
+        const filename = (els.paperName.value.trim() || 'gazeta')
+            .replace(/[^\wа-яА-ЯёЁ\s-]/g, '')
+            .trim()
+            .replace(/\s+/g, '_') + '.pdf';
+
+        pdf.save(filename || 'gazeta.pdf');
+        showToast('PDF сохранён 📄');
+    } catch (err) {
+        console.error('PDF error:', err);
+        showToast('Ошибка PDF: ' + (err.message || 'неизвестно'));
+    } finally {
+        els.btnPdf.disabled = false;
+        els.btnPdf.textContent = '📄 Скачать PDF';
+    }
+});
+
+/* ============ ИНИЦИАЛИЗАЦИЯ ============ */
+syncPaper();
+updateRemoveBtn();
+</script>
+</body>
+</html>
